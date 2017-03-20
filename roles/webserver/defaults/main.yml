@@ -1,0 +1,16 @@
+---
+  nginx_dir: "/etc/nginx"
+  nginx_conf_dir: "{{nginx_dir}}/conf.d"
+
+  vhost_conf_dir: "{{nginx_dir}}/sites-available"
+  vhost_doc_dir: "/var/www/{{host_name}}"
+
+  letsencrypt_www_dir: "/var/www/letsencrypt"
+  letsencrypt_cert_live_dir: "/etc/letsencrypt/live"
+  letsencrypt_command: letsencrypt
+  letsencrypt_renewal_frequency:
+    day: "*"
+    hour: 0
+    minute: 0
+
+  is_default_conf: False

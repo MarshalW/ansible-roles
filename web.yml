@@ -1,0 +1,8 @@
+---
+- hosts: server
+  vars:
+    host_name: www.example.com
+    admin_email: admin@example.com
+    is_default_conf: True
+  roles:
+    - webserver

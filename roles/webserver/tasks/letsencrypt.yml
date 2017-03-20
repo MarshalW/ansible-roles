@@ -1,0 +1,105 @@
+---
+- name: Make sure git is in place to install letsencrypt
+  become: yes
+  apt:
+    name: git
+    state: latest
+
+- name: Make sure python is in place to install letsencrypt
+  become: yes
+  apt:
+    name: python
+    state: latest
+
+- name: Make sure letsencrypt is in place
+  become: yes
+  apt:
+    name: letsencrypt
+    state: latest
+
+- name: Ensure vhost config path exists
+  become: yes
+  file:
+    path: "{{vhost_conf_dir}}"
+    state: directory
+    follow: yes
+
+- name: Generate vhost config file
+  become: yes
+  template:
+    src: vhost_conf.j2
+    dest: "{{vhost_conf_dir}}/{{host_name}}.conf"
+
+- name: Delete nginx default config file
+  become: yes
+  file:
+    path: "{{nginx_conf_dir}}/default"
+    state: absent
+  when: is_default_conf==True
+
+- name: Ensure vhost document path exists
+  become: yes
+  file:
+    path: "{{vhost_doc_dir}}"
+    state: directory
+    follow: yes
+    owner: www-data
+    group: www-data
+
+- name: Check vhost document exists
+  become: yes
+  stat:
+    path: "{{vhost_doc_dir}}/index.html"
+  register: vhost_doc_file
+
+- name: Ensure vhost index file exists
+  become: yes
+  template:
+    src: index.j2
+    dest: "{{vhost_doc_dir}}/index.html"
+    owner: www-data
+    group: www-data
+  when: vhost_doc_file.stat.exists==False
+
+- name: Ensure letsencrypt /var/www/letsencrypt exits
+  become: yes
+  file:
+    path: "{{letsencrypt_www_dir}}"
+    state: directory
+    follow: yes
+    owner: www-data
+    group: www-data
+
+- name: Link vhost config to nginx conf dir
+  become: yes
+  file:
+    src: "{{vhost_conf_dir}}/{{host_name}}.conf"
+    dest: "{{nginx_conf_dir}}/{{host_name}}.conf"
+    state: link
+  notify: Restart nginx
+
+- name: letsencrypt generate cert file
+  become: yes
+  command: "{{ letsencrypt_command }} certonly --webroot -w {{letsencrypt_www_dir}} -d {{host_name}} --email {{admin_email}} --agree-tos"
+
+- name: Generate https config
+  become: yes
+  template:
+    src: vhost_conf.https.j2
+    dest: "{{vhost_conf_dir}}/{{host_name}}.conf"
+  notify: Restart nginx
+
+# - name: Restart nginx
+#   become: yes
+#   service:
+#     name: nginx
+#     state: restarted
+
+- name: Install renewal cron
+  become: yes
+  cron:
+    name: "Let's Encrypt Renewal"
+    day: "{{ letsencrypt_renewal_frequency.day }}"
+    hour: "{{ letsencrypt_renewal_frequency.hour }}"
+    minute: "{{ letsencrypt_renewal_frequency.minute }}"
+    job: '{{ letsencrypt_command }}  renew --quiet --post-hook "systemctl reload nginx"'
